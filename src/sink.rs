@@ -10,8 +10,8 @@ use crate::{queue, source::Done, Sample, Source};
 ///
 /// Dropping the `Sink` stops all sounds. You can use `detach` if you want the sounds to continue
 /// playing.
-pub struct Sink {
-    queue_tx: Arc<queue::SourcesQueueInput<f32>>,
+pub struct Sink<S: Sample + Send + 'static> {
+    queue_tx: Arc<queue::SourcesQueueInput<S>>,
     sleep_until_end: Mutex<Option<Receiver<()>>>,
 
     controls: Arc<Controls>,
@@ -26,18 +26,20 @@ struct Controls {
     stopped: AtomicBool,
 }
 
-impl Sink {
+impl Sink<f32> {
     /// Builds a new `Sink`, beginning playback on a stream.
     #[inline]
-    pub fn try_new(stream: &OutputStreamHandle) -> Result<Sink, PlayError> {
+    pub fn try_new(stream: &OutputStreamHandle) -> Result<Sink<f32>, PlayError> {
         let (sink, queue_rx) = Sink::new_idle();
         stream.play_raw(queue_rx)?;
         Ok(sink)
     }
+}
 
+impl<S: Sample + Send + 'static> Sink<S> {
     /// Builds a new `Sink`.
     #[inline]
-    pub fn new_idle() -> (Sink, queue::SourcesQueueOutput<f32>) {
+    pub fn new_idle() -> (Sink<S>, queue::SourcesQueueOutput<S>) {
         let (queue_tx, queue_rx) = queue::queue(true);
 
         let sink = Sink {
@@ -56,11 +58,11 @@ impl Sink {
 
     /// Appends a sound to the queue of sounds to play.
     #[inline]
-    pub fn append<S>(&self, source: S)
+    pub fn append<Src>(&self, source: Src)
     where
-        S: Source + Send + 'static,
-        S::Item: Sample,
-        S::Item: Send,
+        Src: Source + Send + 'static,
+        Src::Item: Sample,
+        Src::Item: Send,
     {
         let controls = self.controls.clone();
 
@@ -160,7 +162,7 @@ impl Sink {
     }
 }
 
-impl Drop for Sink {
+impl<S: Sample + Send + 'static> Drop for Sink<S> {
     #[inline]
     fn drop(&mut self) {
         self.queue_tx.set_keep_alive_if_empty(false);

@@ -4,6 +4,7 @@ use std::time::Duration;
 use crate::Source;
 
 use hound::{SampleFormat, WavReader};
+use cpal::Sample;
 
 /// Decoder for the WAV format.
 pub struct WavDecoder<R>
@@ -55,15 +56,15 @@ impl<R> Iterator for SamplesIterator<R>
 where
     R: Read + Seek,
 {
-    type Item = i16;
+    type Item = i32;
 
     #[inline]
-    fn next(&mut self) -> Option<i16> {
+    fn next(&mut self) -> Option<i32> {
         let spec = self.reader.spec();
         match (spec.sample_format, spec.bits_per_sample) {
             (SampleFormat::Float, 32) => self.reader.samples().next().map(|value| {
                 self.samples_read += 1;
-                f32_to_i16(value.unwrap_or(0.0))
+                value.unwrap_or(0.0).to_i32()
             }),
             (SampleFormat::Int, 16) => self.reader.samples().next().map(|value| {
                 self.samples_read += 1;
@@ -71,11 +72,11 @@ where
             }),
             (SampleFormat::Int, 24) => self.reader.samples().next().map(|value| {
                 self.samples_read += 1;
-                i24_to_i16(value.unwrap_or(0))
+                value.unwrap_or(0)
             }),
             (SampleFormat::Int, 8) => self.reader.samples().next().map(|value| {
                 self.samples_read += 1;
-                i8_to_i16(value.unwrap_or(0))
+                value.unwrap_or(0)
             }),
             (sample_format, bits_per_sample) => panic!(
                 "Unimplemented wav spec: {:?}, {}",
@@ -123,10 +124,10 @@ impl<R> Iterator for WavDecoder<R>
 where
     R: Read + Seek,
 {
-    type Item = i16;
+    type Item = i32;
 
     #[inline]
-    fn next(&mut self) -> Option<i16> {
+    fn next(&mut self) -> Option<i32> {
         self.reader.next()
     }
 

@@ -58,7 +58,7 @@ impl OutputStreamHandle {
     }
 
     /// Plays a sound once. Returns a `Sink` that can be used to control the sound.
-    pub fn play_once<R>(&self, input: R) -> Result<Sink, PlayError>
+    pub fn play_once<R>(&self, input: R) -> Result<Sink<f32>, PlayError>
     where
         R: Read + Seek + Send + 'static,
     {
@@ -161,6 +161,14 @@ impl CpalDeviceExt for cpal::Device {
                 move |data, _| {
                     data.iter_mut()
                         .for_each(|d| *d = mixer_rx.next().unwrap_or(0f32))
+                },
+                error_callback,
+            ),
+            cpal::SampleFormat::I32 => self.build_output_stream::<i32, _, _>(
+                &format.config(),
+                move |data, _| {
+                    data.iter_mut()
+                        .for_each(|d| *d = mixer_rx.next().map(|s| s.to_i32()).unwrap_or(0i32))
                 },
                 error_callback,
             ),

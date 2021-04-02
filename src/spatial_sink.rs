@@ -8,7 +8,7 @@ use crate::stream::{OutputStreamHandle, PlayError};
 use crate::{Sample, Sink, Source};
 
 pub struct SpatialSink {
-    sink: Sink,
+    sink: Sink<f32>,
     positions: Arc<Mutex<SoundPositions>>,
 }
 
@@ -27,7 +27,7 @@ impl SpatialSink {
         right_ear: [f32; 3],
     ) -> Result<SpatialSink, PlayError> {
         Ok(SpatialSink {
-            sink: Sink::try_new(stream)?,
+            sink: Sink::<f32>::try_new(stream)?,
             positions: Arc::new(Mutex::new(SoundPositions {
                 emitter_position,
                 left_ear,

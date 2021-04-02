@@ -3,7 +3,7 @@ use std::io::{Read, Seek, SeekFrom};
 use std::mem;
 use std::time::Duration;
 
-use crate::Source;
+use crate::{Source, Sample};
 
 use claxon::FlacReader;
 
@@ -51,6 +51,32 @@ where
     pub fn into_inner(self) -> R {
         self.reader.into_inner()
     }
+
+    #[inline]
+    pub fn next_sample<S: Sample + Send + 'static>(&mut self) -> Option<S> {
+        loop {
+            if self.current_block_off < self.current_block.len() {
+                // Read from current block.
+                let real_offset = (self.current_block_off % self.channels as usize)
+                    * self.current_block_channel_len
+                    + self.current_block_off / self.channels as usize;
+                let raw_val = self.current_block[real_offset];
+                self.current_block_off += 1;
+                return Some(S::from(&raw_val));
+            }
+
+            // Load the next block.
+            self.current_block_off = 0;
+            let buffer = mem::replace(&mut self.current_block, Vec::new());
+            match self.reader.blocks().read_next_or_eof(buffer) {
+                Ok(Some(block)) => {
+                    self.current_block_channel_len = (block.len() / block.channels()) as usize;
+                    self.current_block = block.into_buffer();
+                }
+                _ => return None,
+            }
+        }
+    }
 }
 
 impl<R> Source for FlacDecoder<R>
@@ -85,37 +111,11 @@ impl<R> Iterator for FlacDecoder<R>
 where
     R: Read + Seek,
 {
-    type Item = i16;
+    type Item = i32;
 
     #[inline]
-    fn next(&mut self) -> Option<i16> {
-        loop {
-            if self.current_block_off < self.current_block.len() {
-                // Read from current block.
-                let real_offset = (self.current_block_off % self.channels as usize)
-                    * self.current_block_channel_len
-                    + self.current_block_off / self.channels as usize;
-                let raw_val = self.current_block[real_offset];
-                self.current_block_off += 1;
-                let real_val = match self.bits_per_sample.cmp(&16) {
-                    Ordering::Less => (raw_val << (16 - self.bits_per_sample)) as i16,
-                    Ordering::Equal => raw_val as i16,
-                    Ordering::Greater => (raw_val >> (self.bits_per_sample - 16)) as i16,
-                };
-                return Some(real_val as i16);
-            }
-
-            // Load the next block.
-            self.current_block_off = 0;
-            let buffer = mem::replace(&mut self.current_block, Vec::new());
-            match self.reader.blocks().read_next_or_eof(buffer) {
-                Ok(Some(block)) => {
-                    self.current_block_channel_len = (block.len() / block.channels()) as usize;
-                    self.current_block = block.into_buffer();
-                }
-                _ => return None,
-            }
-        }
+    fn next(&mut self) -> Option<i32> {
+        self.next_sample()
     }
 }
 

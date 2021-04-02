@@ -7,7 +7,8 @@ use std::io::{Read, Seek, SeekFrom};
 use std::mem;
 use std::time::Duration;
 
-use crate::Source;
+use crate::{Source};
+use cpal::Sample;
 
 #[cfg(feature = "flac")]
 mod flac;
@@ -141,19 +142,19 @@ impl<R> Iterator for Decoder<R>
 where
     R: Read + Seek,
 {
-    type Item = i16;
+    type Item = i32;
 
     #[inline]
-    fn next(&mut self) -> Option<i16> {
+    fn next(&mut self) -> Option<i32> {
         match &mut self.0 {
             #[cfg(feature = "wav")]
             DecoderImpl::Wav(source) => source.next(),
             #[cfg(feature = "vorbis")]
-            DecoderImpl::Vorbis(source) => source.next(),
+            DecoderImpl::Vorbis(source) => source.next().map(|s| s.to_i32()),
             #[cfg(feature = "flac")]
             DecoderImpl::Flac(source) => source.next(),
             #[cfg(feature = "mp3")]
-            DecoderImpl::Mp3(source) => source.next(),
+            DecoderImpl::Mp3(source) => source.next().map(|s| s.to_i32()),
             DecoderImpl::None(_) => None,
         }
     }
@@ -243,19 +244,19 @@ impl<R> Iterator for LoopedDecoder<R>
 where
     R: Read + Seek,
 {
-    type Item = i16;
+    type Item = i32;
 
     #[inline]
-    fn next(&mut self) -> Option<i16> {
+    fn next(&mut self) -> Option<i32> {
         if let Some(sample) = match &mut self.0 {
             #[cfg(feature = "wav")]
             DecoderImpl::Wav(source) => source.next(),
             #[cfg(feature = "vorbis")]
-            DecoderImpl::Vorbis(source) => source.next(),
+            DecoderImpl::Vorbis(source) => source.next().map(|s| s.to_i32()),
             #[cfg(feature = "flac")]
             DecoderImpl::Flac(source) => source.next(),
             #[cfg(feature = "mp3")]
-            DecoderImpl::Mp3(source) => source.next(),
+            DecoderImpl::Mp3(source) => source.next().map(|s| s.to_i32()),
             DecoderImpl::None(_) => None,
         } {
             Some(sample)
@@ -278,7 +279,7 @@ where
                     let mut source = vorbis::VorbisDecoder::from_stream_reader(
                         OggStreamReader::from_ogg_reader(reader).ok()?,
                     );
-                    let sample = source.next();
+                    let sample = source.next().map(|s| s.to_i32());
                     (DecoderImpl::Vorbis(source), sample)
                 }
                 #[cfg(feature = "flac")]
@@ -294,7 +295,7 @@ where
                     let mut reader = source.into_inner();
                     reader.seek(SeekFrom::Start(0)).ok()?;
                     let mut source = mp3::Mp3Decoder::new(reader).ok()?;
-                    let sample = source.next();
+                    let sample = source.next().map(|s| s.to_i32());
                     (DecoderImpl::Mp3(source), sample)
                 }
                 none @ DecoderImpl::None(_) => (none, None),
