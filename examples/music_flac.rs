@@ -1,4 +1,5 @@
 use std::io::BufReader;
+use rodio::{SinkAppender, SinkControl};
 
 fn main() {
     let (_stream, handle) = rodio::OutputStream::try_default().unwrap();

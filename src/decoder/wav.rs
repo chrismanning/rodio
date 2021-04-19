@@ -118,6 +118,11 @@ where
         let ms = self.len() as u64 * 1000 / (self.channels as u64 * self.sample_rate as u64);
         Some(Duration::from_millis(ms))
     }
+
+    #[inline]
+    fn bits_per_sample(&self) -> u8 {
+        self.reader.reader.spec().bits_per_sample as u8
+    }
 }
 
 impl<R> Iterator for WavDecoder<R>

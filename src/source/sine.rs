@@ -2,6 +2,7 @@ use std::f32::consts::PI;
 use std::time::Duration;
 
 use crate::Source;
+use std::mem::size_of;
 
 /// An infinite source that produces a sine.
 ///
@@ -54,5 +55,10 @@ impl Source for SineWave {
     #[inline]
     fn total_duration(&self) -> Option<Duration> {
         None
+    }
+
+    #[inline]
+    fn bits_per_sample(&self) -> u8 {
+        size_of::<f32>() as u8
     }
 }

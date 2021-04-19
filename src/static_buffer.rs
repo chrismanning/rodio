@@ -14,6 +14,7 @@ use std::slice::Iter as SliceIter;
 use std::time::Duration;
 
 use crate::{Sample, Source};
+use std::mem::size_of;
 
 /// A buffer of samples treated as a source.
 #[derive(Clone)]
@@ -83,6 +84,11 @@ where
     #[inline]
     fn total_duration(&self) -> Option<Duration> {
         Some(self.duration)
+    }
+
+    #[inline]
+    fn bits_per_sample(&self) -> u8 {
+        size_of::<S>() as u8
     }
 }
 

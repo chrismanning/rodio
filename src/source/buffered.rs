@@ -62,6 +62,7 @@ where
     data: Vec<I::Item>,
     channels: u16,
     rate: u32,
+    bps: u8,
     next: Mutex<Arc<Frame<I>>>,
 }
 
@@ -79,6 +80,7 @@ where
 
     let channels = input.channels();
     let rate = input.sample_rate();
+    let bps = input.bits_per_sample();
     let data: Vec<I::Item> = input
         .by_ref()
         .take(cmp::min(frame_len.unwrap_or(32768), 32768))
@@ -92,6 +94,7 @@ where
         data,
         channels,
         rate,
+        bps,
         next: Mutex::new(Arc::new(Frame::Input(Mutex::new(Some(input))))),
     }))
 }
@@ -207,6 +210,15 @@ where
     #[inline]
     fn total_duration(&self) -> Option<Duration> {
         self.total_duration
+    }
+
+    #[inline]
+    fn bits_per_sample(&self) -> u8 {
+        match *self.current_frame {
+            Frame::Data(FrameData { bps , .. }) => bps,
+            Frame::End => 0,
+            Frame::Input(_) => unreachable!(),
+        }
     }
 }
 

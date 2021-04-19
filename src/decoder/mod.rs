@@ -150,11 +150,11 @@ where
             #[cfg(feature = "wav")]
             DecoderImpl::Wav(source) => source.next(),
             #[cfg(feature = "vorbis")]
-            DecoderImpl::Vorbis(source) => source.next().map(|s| s.to_i32()),
+            DecoderImpl::Vorbis(source) => source.next().map(|s| Sample::from(&s)),
             #[cfg(feature = "flac")]
             DecoderImpl::Flac(source) => source.next(),
             #[cfg(feature = "mp3")]
-            DecoderImpl::Mp3(source) => source.next().map(|s| s.to_i32()),
+            DecoderImpl::Mp3(source) => source.next().map(|s| Sample::from(&s)),
             DecoderImpl::None(_) => None,
         }
     }
@@ -236,6 +236,21 @@ where
             #[cfg(feature = "mp3")]
             DecoderImpl::Mp3(source) => source.total_duration(),
             DecoderImpl::None(_) => Some(Duration::default()),
+        }
+    }
+
+    #[inline]
+    fn bits_per_sample(&self) -> u8 {
+        match &self.0 {
+            #[cfg(feature = "wav")]
+            DecoderImpl::Wav(source) => source.bits_per_sample(),
+            #[cfg(feature = "vorbis")]
+            DecoderImpl::Vorbis(source) => source.bits_per_sample(),
+            #[cfg(feature = "flac")]
+            DecoderImpl::Flac(source) => source.bits_per_sample(),
+            #[cfg(feature = "mp3")]
+            DecoderImpl::Mp3(source) => source.bits_per_sample(),
+            DecoderImpl::None(_) => 0,
         }
     }
 }
@@ -373,6 +388,21 @@ where
     #[inline]
     fn total_duration(&self) -> Option<Duration> {
         None
+    }
+
+    #[inline]
+    fn bits_per_sample(&self) -> u8 {
+        match &self.0 {
+            #[cfg(feature = "wav")]
+            DecoderImpl::Wav(source) => source.bits_per_sample(),
+            #[cfg(feature = "vorbis")]
+            DecoderImpl::Vorbis(source) => source.bits_per_sample(),
+            #[cfg(feature = "flac")]
+            DecoderImpl::Flac(source) => source.bits_per_sample(),
+            #[cfg(feature = "mp3")]
+            DecoderImpl::Mp3(source) => source.bits_per_sample(),
+            DecoderImpl::None(_) => 0,
+        }
     }
 }
 

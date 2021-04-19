@@ -87,4 +87,9 @@ where
     fn total_duration(&self) -> Option<Duration> {
         self.input.total_duration()
     }
+
+    #[inline]
+    fn bits_per_sample(&self) -> u8 {
+        self.input.bits_per_sample()
+    }
 }

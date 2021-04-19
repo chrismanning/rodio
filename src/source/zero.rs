@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 use std::time::Duration;
 
 use crate::{Sample, Source};
+use std::mem::size_of;
 
 /// An infinite source that produces zero.
 #[derive(Clone, Debug)]
@@ -56,5 +57,10 @@ where
     #[inline]
     fn total_duration(&self) -> Option<Duration> {
         None
+    }
+
+    #[inline]
+    fn bits_per_sample(&self) -> u8 {
+        size_of::<S>() as u8
     }
 }

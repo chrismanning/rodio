@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use crate::conversions::{ChannelCountConverter, DataConverter, SampleRateConverter};
 use crate::{Sample, Source};
+use std::mem::size_of;
 
 /// An iterator that reads from a `Source` and converts the samples to a specific rate and
 /// channels count.
@@ -134,6 +135,11 @@ where
     #[inline]
     fn total_duration(&self) -> Option<Duration> {
         self.total_duration
+    }
+
+    #[inline]
+    fn bits_per_sample(&self) -> u8 {
+        size_of::<D>() as u8
     }
 }
 

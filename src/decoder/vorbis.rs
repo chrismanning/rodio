@@ -73,6 +73,10 @@ where
     fn total_duration(&self) -> Option<Duration> {
         None
     }
+
+    fn bits_per_sample(&self) -> u8 {
+        16
+    }
 }
 
 impl<R> Iterator for VorbisDecoder<R>

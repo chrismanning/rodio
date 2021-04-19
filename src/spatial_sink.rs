@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use crate::source::Spatial;
 use crate::stream::{OutputStreamHandle, PlayError};
-use crate::{Sample, Sink, Source};
+use crate::{Sample, Sink, SinkControl, SinkAppender, Source};
 
 pub struct SpatialSink {
     sink: Sink<f32>,
@@ -70,7 +70,7 @@ impl SpatialSink {
             let pos = positions.lock().unwrap();
             i.set_positions(pos.emitter_position, pos.left_ear, pos.right_ear);
         });
-        self.sink.append(source);
+        self.sink.append(source.convert_samples::<f32>());
     }
 
     // Gets the volume of the sound.
@@ -117,7 +117,7 @@ impl SpatialSink {
 
     /// Stops the sink by emptying the queue.
     #[inline]
-    pub fn stop(&self) {
+    pub fn stop(&mut self) {
         self.sink.stop()
     }
 

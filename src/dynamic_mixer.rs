@@ -94,6 +94,11 @@ where
     fn total_duration(&self) -> Option<Duration> {
         None
     }
+
+    #[inline]
+    fn bits_per_sample(&self) -> u8 {
+        32
+    }
 }
 
 impl<S> Iterator for DynamicMixer<S>

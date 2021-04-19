@@ -4,7 +4,7 @@ use std::{error, fmt};
 
 use crate::decoder;
 use crate::dynamic_mixer::{self, DynamicMixerController};
-use crate::sink::Sink;
+use crate::sink::{Sink, SinkAppender};
 use crate::source::Source;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::Sample;

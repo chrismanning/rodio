@@ -29,7 +29,24 @@ where
     });
 
     let output = SourcesQueueOutput {
-        current: Box::new(Empty::<S>::new()) as Box<_>,
+        current: Box::new(Empty::<S>::default()) as Box<_>,
+        signal_after_end: None,
+        input: input.clone(),
+    };
+
+    (input, output)
+}
+
+pub fn queue_with<Src, S>(source: Src, keep_alive_if_empty: bool) -> (Arc<SourcesQueueInput<S>>, SourcesQueueOutput<S>)
+    where
+        Src: Source + Send + 'static,
+        Src: Iterator<Item=S>,
+        S: Sample + Send + 'static,
+{
+    let input = Arc::new(SourcesQueueInput::new(keep_alive_if_empty));
+
+    let output = SourcesQueueOutput {
+        current: Box::new(source) as Box<_>,
         signal_after_end: None,
         input: input.clone(),
     };
@@ -51,6 +68,13 @@ impl<S> SourcesQueueInput<S>
 where
     S: Sample + Send + 'static,
 {
+    pub(crate) fn new(keep_alive_if_empty: bool) -> Self {
+        Self {
+            keep_alive_if_empty: AtomicBool::new(keep_alive_if_empty),
+            next_sounds: Mutex::new(Vec::new())
+        }
+    }
+
     /// Adds a new source to the end of the queue.
     #[inline]
     pub fn append<T>(&self, source: T)
@@ -151,6 +175,11 @@ where
     fn total_duration(&self) -> Option<Duration> {
         None
     }
+
+    #[inline]
+    fn bits_per_sample(&self) -> u8 {
+        self.current.bits_per_sample()
+    }
 }
 
 impl<S> Iterator for SourcesQueueOutput<S>
@@ -200,7 +229,7 @@ where
             if next.len() == 0 {
                 if self.input.keep_alive_if_empty.load(Ordering::Acquire) {
                     // Play a short silence in order to avoid spinlocking.
-                    let silence = Zero::<S>::new(1, 44100); // TODO: meh
+                    let silence = Zero::<S>::new(self.channels(), self.sample_rate());
                     (
                         Box::new(silence.take_duration(Duration::from_millis(10))) as Box<_>,
                         None,

@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::io::{Read, Seek, SeekFrom};
 use std::mem;
 use std::time::Duration;
@@ -104,6 +103,10 @@ where
         // so we do not divide by `self.channels` here.
         self.samples
             .map(|s| Duration::from_micros(s * 1_000_000 / self.sample_rate as u64))
+    }
+
+    fn bits_per_sample(&self) -> u8 {
+        self.bits_per_sample as u8
     }
 }
 

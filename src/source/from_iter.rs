@@ -135,6 +135,15 @@ where
     fn total_duration(&self) -> Option<Duration> {
         None
     }
+
+    #[inline]
+    fn bits_per_sample(&self) -> u8 {
+        if let Some(src) = &self.current_source {
+            src.bits_per_sample()
+        } else {
+            0
+        }
+    }
 }
 
 #[cfg(test)]

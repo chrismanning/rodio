@@ -105,4 +105,9 @@ where
             .total_duration()
             .map(|val| val + self.requested_duration)
     }
+
+    #[inline]
+    fn bits_per_sample(&self) -> u8 {
+        self.input.bits_per_sample()
+    }
 }

@@ -6,6 +6,53 @@ use std::time::Duration;
 use crate::stream::{OutputStreamHandle, PlayError};
 use crate::{queue, source::Done, Sample, Source};
 
+pub trait SinkAppender {
+    /// Appends a sound to the queue of sounds to play.
+    fn append<Src>(&self, source: Src)
+    where
+        Src: Source + Send + 'static,
+        Src::Item: Sample,
+        Src::Item: Send;
+}
+
+pub trait SinkControl {
+    /// Gets the volume of the sound.
+    ///
+    /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than 1.0 will
+    /// multiply each sample by this value.
+    fn volume(&self) -> f32;
+    /// Changes the volume of the sound.
+    ///
+    /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0` will
+    /// multiply each sample by this value.
+    fn set_volume(&self, value: f32);
+    /// Resumes playback of a paused sink.
+    ///
+    /// No effect if not paused.
+    fn play(&self);
+    /// Pauses playback of this sink.
+    ///
+    /// No effect if already paused.
+    ///
+    /// A paused sink can be resumed with `play()`.
+    fn pause(&self);
+    /// Gets if a sink is paused
+    ///
+    /// Sinks can be paused and resumed using `pause()` and `play()`. This returns `true` if the
+    /// sink is paused.
+    fn is_paused(&self) -> bool;
+    /// Stops the sink by emptying the queue.
+    fn stop(&mut self);
+    /// Destroys the sink without stopping the sounds that are still playing.
+    fn detach(self);
+    /// Sleeps the current thread until the sound ends.
+    fn sleep_until_end(&self);
+    /// Returns true if this sink has no more sounds to play.
+    fn empty(&self) -> bool;
+    /// Returns the number of sounds currently in the queue.
+    fn len(&self) -> usize;
+}
+
 /// Handle to an device that outputs sounds.
 ///
 /// Dropping the `Sink` stops all sounds. You can use `detach` if you want the sounds to continue
@@ -40,25 +87,32 @@ impl<S: Sample + Send + 'static> Sink<S> {
     /// Builds a new `Sink`.
     #[inline]
     pub fn new_idle() -> (Sink<S>, queue::SourcesQueueOutput<S>) {
+        let controls = Arc::new(Controls {
+            pause: AtomicBool::new(false),
+            volume: Mutex::new(1.0),
+            stopped: AtomicBool::new(false),
+        });
+        Self::with_controls(controls)
+    }
+
+    #[inline]
+    fn with_controls(controls: Arc<Controls>) -> (Sink<S>, queue::SourcesQueueOutput<S>) {
         let (queue_tx, queue_rx) = queue::queue(true);
 
         let sink = Sink {
+            controls,
             queue_tx,
             sleep_until_end: Mutex::new(None),
-            controls: Arc::new(Controls {
-                pause: AtomicBool::new(false),
-                volume: Mutex::new(1.0),
-                stopped: AtomicBool::new(false),
-            }),
             sound_count: Arc::new(AtomicUsize::new(0)),
             detached: false,
         };
         (sink, queue_rx)
     }
+}
 
-    /// Appends a sound to the queue of sounds to play.
+impl<S: Sample + Send + 'static> SinkAppender for Sink<S> {
     #[inline]
-    pub fn append<Src>(&self, source: Src)
+    fn append<Src>(&self, source: Src)
     where
         Src: Source + Send + 'static,
         Src::Item: Sample,
@@ -85,79 +139,56 @@ impl<S: Sample + Send + 'static> Sink<S> {
         let source = Done::new(source, self.sound_count.clone());
         *self.sleep_until_end.lock().unwrap() = Some(self.queue_tx.append_with_signal(source));
     }
+}
 
-    /// Gets the volume of the sound.
-    ///
-    /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than 1.0 will
-    /// multiply each sample by this value.
+impl<S: Sample + Send + 'static> SinkControl for Sink<S> {
     #[inline]
-    pub fn volume(&self) -> f32 {
+    fn volume(&self) -> f32 {
         *self.controls.volume.lock().unwrap()
     }
 
-    /// Changes the volume of the sound.
-    ///
-    /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0` will
-    /// multiply each sample by this value.
     #[inline]
-    pub fn set_volume(&self, value: f32) {
+    fn set_volume(&self, value: f32) {
         *self.controls.volume.lock().unwrap() = value;
     }
 
-    /// Resumes playback of a paused sink.
-    ///
-    /// No effect if not paused.
     #[inline]
-    pub fn play(&self) {
+    fn play(&self) {
         self.controls.pause.store(false, Ordering::SeqCst);
     }
 
-    /// Pauses playback of this sink.
-    ///
-    /// No effect if already paused.
-    ///
-    /// A paused sink can be resumed with `play()`.
-    pub fn pause(&self) {
+    fn pause(&self) {
         self.controls.pause.store(true, Ordering::SeqCst);
     }
 
-    /// Gets if a sink is paused
-    ///
-    /// Sinks can be paused and resumed using `pause()` and `play()`. This returns `true` if the
-    /// sink is paused.
-    pub fn is_paused(&self) -> bool {
+    fn is_paused(&self) -> bool {
         self.controls.pause.load(Ordering::SeqCst)
     }
 
-    /// Stops the sink by emptying the queue.
     #[inline]
-    pub fn stop(&self) {
+    fn stop(&mut self) {
         self.controls.stopped.store(true, Ordering::SeqCst);
     }
 
-    /// Destroys the sink without stopping the sounds that are still playing.
     #[inline]
-    pub fn detach(mut self) {
+    fn detach(mut self) {
         self.detached = true;
     }
 
-    /// Sleeps the current thread until the sound ends.
     #[inline]
-    pub fn sleep_until_end(&self) {
+    fn sleep_until_end(&self) {
         if let Some(sleep_until_end) = self.sleep_until_end.lock().unwrap().take() {
             let _ = sleep_until_end.recv();
         }
     }
 
-    /// Returns true if this sink has no more sounds to play.
     #[inline]
-    pub fn empty(&self) -> bool {
+    fn empty(&self) -> bool {
         self.len() == 0
     }
 
-    /// Returns the number of sounds currently in the queue.
     #[inline]
-    pub fn len(&self) -> usize {
+    fn len(&self) -> usize {
         self.sound_count.load(Ordering::Relaxed)
     }
 }
@@ -176,11 +207,11 @@ impl<S: Sample + Send + 'static> Drop for Sink<S> {
 #[cfg(test)]
 mod tests {
     use crate::buffer::SamplesBuffer;
-    use crate::{Sink, Source};
+    use crate::{Sink, SinkAppender, SinkControl, Source};
 
     #[test]
     fn test_pause_and_stop() {
-        let (sink, mut queue_rx) = Sink::new_idle();
+        let (mut sink, mut queue_rx) = Sink::new_idle();
 
         // assert_eq!(queue_rx.next(), Some(0.0));
 

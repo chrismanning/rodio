@@ -48,7 +48,7 @@
 //! use std::fs::File;
 //! use std::io::BufReader;
 //! use std::time::Duration;
-//! use rodio::{Decoder, OutputStream, Sink};
+//! use rodio::{Decoder, OutputStream, Sink, SinkControl, SinkAppender};
 //! use rodio::source::{SineWave, Source};
 //!
 //! let (_stream, stream_handle) = OutputStream::try_default().unwrap();
@@ -115,7 +115,7 @@ pub mod static_buffer;
 
 pub use crate::conversions::Sample;
 pub use crate::decoder::Decoder;
-pub use crate::sink::Sink;
+pub use crate::sink::{Sink, SinkControl, SinkAppender};
 pub use crate::source::Source;
 pub use crate::spatial_sink::SpatialSink;
 pub use crate::stream::{OutputStream, OutputStreamHandle, PlayError, StreamError};

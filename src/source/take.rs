@@ -176,4 +176,9 @@ where
             None
         }
     }
+
+    #[inline]
+    fn bits_per_sample(&self) -> u8 {
+        self.input.bits_per_sample()
+    }
 }
